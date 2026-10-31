@@ -4,6 +4,10 @@
   "description": "This is an updated code from the original code: [AWS Three Tier Web Architecture Workshop](https://github.com/aws-samples/aws-three-tier-web-architecture-workshop/tree/main)",
   "main": "index.js",
   "scripts": {
+    "start:local": "pm2 startOrRestart ecosystem.config.js",
+    "stop:local": "pm2 stop three-tier-backend && pm2 stop three-tier-frontend",
+    "status:local": "pm2 status",
+    "logs:local": "pm2 logs --lines 100",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {

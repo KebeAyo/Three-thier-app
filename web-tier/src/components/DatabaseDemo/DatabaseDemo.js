@@ -2,6 +2,9 @@
     import React, {Component} from 'react';
     import './DatabaseDemo.css';
 
+    const API_BASE_URL = (process.env.REACT_APP_API_BASE_URL || '/api').replace(/\/$/, '');
+    const TRANSACTION_URL = `${API_BASE_URL}/transaction`;
+
     class DatabaseDemo extends Component {
      
         constructor(props) {
@@ -21,7 +24,7 @@
           }
 
         populateData(){
-            this.fetch_retry('/api/transaction',3)
+            this.fetch_retry(TRANSACTION_URL,3)
             .then(res => res.json())
             .then((data) => {
               this.setState({ transactions : data.result });
@@ -59,7 +62,7 @@
            const requestOptions = {
                method: 'DELETE'
            }
-           fetch('/api/transaction', requestOptions)
+           fetch(TRANSACTION_URL, requestOptions)
            .then(response => response.json())
            .then(data => this.populateData())
 
@@ -76,7 +79,7 @@
                 body: JSON.stringify({"amount":this.state.text_amt, "desc" :this.state.text_desc})
             }
             
-            fetch('/api/transaction', requestOptions)
+            fetch(TRANSACTION_URL, requestOptions)
             .then(response => response.json())
             .then(data => this.populateData())
             

@@ -1,160 +1,138 @@
+require('dotenv').config({ path: require('path').join(__dirname, '.env') });
+
 const transactionService = require('./TransactionService');
-const mysql = require('mysql');
 const express = require('express');
-const bodyParser = require('body-parser');
 const cors = require('cors');
-const os = require('os');
-const fetch = require('node-fetch');
 
 const app = express();
-const port = 4000;
-const MAX_RETRIES = 5;
-let attempts = 0;
+const port = Number(process.env.PORT) || 4000;
+const maxDatabaseAttempts = 20;
+const retryDelayMs = 3000;
 
-app.use(bodyParser.urlencoded({ extended: true }));
-app.use(bodyParser.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
 app.use(cors());
 
-// This is for troubleshooting to print the credentials on the terminal
-console.log('DB_HOST:', process.env.DB_HOST,);
-console.log('DB_USER:', process.env.DB_USER);
-console.log('DB_PASSWORD:', process.env.DB_PWD);
-console.log('DB_DATABASE:', process.env.DB_DATABASE);
+function getTransactionId(value) {
+    const id = Number(value);
+    return Number.isInteger(id) && id > 0 ? id : null;
+}
 
+function sendServerError(res, message, error) {
+    console.error(message, error);
+    res.status(500).json({ message });
+}
 
-// Database client setup
-const db = mysql.createConnection({
-    host: process.env.DB_HOST,
-    user: process.env.DB_USER,
-    password: process.env.DB_PWD,
-    database: process.env.DB_DATABASE
-  });
+app.get('/health', (req, res) => {
+    res.json({ status: 'ok' });
+});
 
-  db.connect((err) => {
-    if (err) {
-        console.error(`Error connecting to database: ${err}`);
-        attempts++;
-        if (attempts <= MAX_RETRIES) {
-          console.log(`Retrying connection (attempt ${attempts})...`);
-          setTimeout(connectWithRetry, 10000); // Retry after 5 seconds
-        } else {
-          console.error('Max retries reached, could not connect to database.');
-          process.exit(1);
+app.post('/transaction', async (req, res) => {
+    const { amount, desc } = req.body;
+    const parsedAmount = Number(amount);
+
+    if (amount === '' || amount == null || !Number.isFinite(parsedAmount) ||
+        parsedAmount < 0 || parsedAmount > 99999999.99 ||
+        typeof desc !== 'string' || desc.length > 100) {
+        return res.status(400).json({ message: 'Provide a valid amount and a description of at most 100 characters.' });
+    }
+
+    try {
+        await transactionService.addTransaction(parsedAmount, desc);
+        res.status(201).json({ message: 'added transaction successfully' });
+    } catch (error) {
+        sendServerError(res, 'Could not add transaction.', error);
+    }
+});
+
+app.get('/transaction', async (req, res) => {
+    try {
+        const transactions = await transactionService.getAllTransactions();
+        res.json({ result: transactions });
+    } catch (error) {
+        sendServerError(res, 'Could not retrieve transactions.', error);
+    }
+});
+
+app.delete('/transaction', async (req, res) => {
+    try {
+        await transactionService.deleteAllTransactions();
+        res.json({ message: 'Transactions deleted.' });
+    } catch (error) {
+        sendServerError(res, 'Could not delete transactions.', error);
+    }
+});
+
+app.get('/transaction/id', async (req, res) => {
+    const id = getTransactionId(req.query.id);
+    if (!id) {
+        return res.status(400).json({ message: 'Provide a valid transaction id.' });
+    }
+
+    try {
+        const transaction = await transactionService.findTransactionById(id);
+        if (!transaction) {
+            return res.status(404).json({ message: 'Transaction not found.' });
         }
-      } else {
-        console.log('Connected to the database successfully');
-        // Proceed with your application logic
-      }
-  });
-
-// Function to create table if it doesn't exist
-function createTables() {
-    const createTableQuery = `
-      CREATE TABLE IF NOT EXISTS transactions (
-        id INT NOT NULL AUTO_INCREMENT,
-        amount DECIMAL(10,2),
-        description VARCHAR(100),
-        PRIMARY KEY(id)
-      );
-    `;
-  
-    db.query(createTableQuery, (err, results) => {
-      if (err) {
-        console.error('Error creating table:', err);
-        return;
-      }
-      console.log('Table "transactions" created or already exists.');
-    });
-  }
-
-
-
-  // Run the function to create tables
-createTables();
-
-
-// ROUTES FOR OUR API
-// =======================================================
-
-//Health Checking
-app.get('/health',(req,res)=>{
-    res.json("This is the health check");
-});
-
-// ADD TRANSACTION
-app.post('/transaction', (req,res)=>{
-    var response = "";
-    try{
-        console.log(req.body);
-        console.log(req.body.amount);
-        console.log(req.body.desc);
-        var success = transactionService.addTransaction(req.body.amount,req.body.desc);
-        if (success = 200) res.json({ message: 'added transaction successfully'});
-    }catch (err){
-        res.json({ message: 'something went wrong', error : err.message});
+        res.json({
+            id: transaction.id,
+            amount: transaction.amount,
+            desc: transaction.description
+        });
+    } catch (error) {
+        sendServerError(res, 'Could not retrieve transaction.', error);
     }
 });
 
-// GET ALL TRANSACTIONS
-app.get('/transaction',(req,res)=>{
-    try{
-        var transactionList = [];
-       transactionService.getAllTransactions(function (results) {
-            console.log("we are in the call back:");
-            for (const row of results) {
-                transactionList.push({ "id": row.id, "amount": row.amount, "description": row.description });
+app.delete('/transaction/id', async (req, res) => {
+    const id = getTransactionId(req.body.id ?? req.query.id);
+    if (!id) {
+        return res.status(400).json({ message: 'Provide a valid transaction id.' });
+    }
+
+    try {
+        await transactionService.deleteTransactionById(id);
+        res.json({ message: `Transaction ${id} deleted.` });
+    } catch (error) {
+        sendServerError(res, 'Could not delete transaction.', error);
+    }
+});
+
+async function start() {
+    for (let attempt = 1; attempt <= maxDatabaseAttempts; attempt += 1) {
+        try {
+            await transactionService.initialize();
+            break;
+        } catch (error) {
+            if (attempt === maxDatabaseAttempts) {
+                throw new Error(`Could not initialize the database after ${maxDatabaseAttempts} attempts: ${error.message}`);
             }
-            console.log(transactionList);
-            res.statusCode = 200;
-            res.json({"result":transactionList});
+            console.log(`Database is not ready (attempt ${attempt}/${maxDatabaseAttempts}); retrying in ${retryDelayMs / 1000} seconds.`);
+            await new Promise(resolve => setTimeout(resolve, retryDelayMs));
+        }
+    }
+
+    const server = app.listen(port, () => {
+        console.log(`Backend listening on port ${port}.`);
+    });
+
+    const shutdown = () => {
+        server.close(async () => {
+            try {
+                await transactionService.close();
+                process.exit(0);
+            } catch (error) {
+                console.error('Error closing database connections.', error);
+                process.exit(1);
+            }
         });
-    }catch (err){
-        res.json({message:"could not get all transactions",error: err.message});
-    }
+    };
+
+    process.once('SIGINT', shutdown);
+    process.once('SIGTERM', shutdown);
+}
+
+start().catch(error => {
+    console.error(error.message);
+    process.exit(1);
 });
-
-//DELETE ALL TRANSACTIONS
-app.delete('/transaction',(req,res)=>{
-    try{
-        transactionService.deleteAllTransactions(function(result){
-            res.statusCode = 200;
-            res.json({message:"delete function execution finished."})
-        })
-    }catch (err){
-        res.json({message: "Deleting all transactions may have failed.", error:err.message});
-    }
-});
-
-//DELETE ONE TRANSACTION
-app.delete('/transaction/id', (req,res)=>{
-    try{
-        //probably need to do some kind of parameter checking
-        transactionService.deleteTransactionById(req.body.id, function(result){
-            res.statusCode = 200;
-            res.json({message: `transaction with id ${req.body.id} seemingly deleted`});
-        })
-    } catch (err){
-        res.json({message:"error deleting transaction", error: err.message});
-    }
-});
-
-//GET SINGLE TRANSACTION
-app.get('/transaction/id',(req,res)=>{
-    //also probably do some kind of parameter checking here
-    try{
-        transactionService.findTransactionById(req.body.id,function(result){
-            res.statusCode = 200;
-            var id = result[0].id;
-            var amt = result[0].amount;
-            var desc= result[0].desc;
-            res.json({"id":id,"amount":amt,"desc":desc});
-        });
-
-    }catch(err){
-        res.json({message:"error retrieving transaction", error: err.message});
-    }
-});
-
-  app.listen(port, () => {
-    console.log(`AB3 backend app listening at http://localhost:${port}`)
-  })

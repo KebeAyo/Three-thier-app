@@ -1,38 +1,59 @@
-# Three Tier Application
+# Three-tier application
 
-This is an updated code from the original code: [AWS Three Tier Web Architecture Workshop](https://github.com/aws-samples/aws-three-tier-web-architecture-workshop/tree/main)
+This project contains a React frontend and an Express/MySQL backend. Run both locally with PM2; Docker and Docker Compose are not required.
 
+## Requirements
 
-## Application code reference
-This contains source codes for the `app-tier` and `web-tier`
+- Node.js and npm
+- MySQL Server running locally
+- PM2: `npm install --global pm2`
 
-## Getting Started
-- On the web-tier instance, update `nginx.conf` with the internal loadbalancer dns.
-``` 
- sudo -su ec2-user
- cd ~
- sudo vi /etc/nginx/nginx.conf
- sudo systemctl restart nginx
- ```
+## Configure MySQL and environment
 
-- On the app-tier instance, configure the database
+Create the database on your local MySQL server if it does not exist:
+
+```sql
+CREATE DATABASE mydatabase;
 ```
- sudo -su ec2-user
- cd ~
- mysql -h CHANGE-TO-YOUR-RDS-ENDPOINT -u CHANGE-TO-USER-NAME -p # get the username and password from aws secret manager `db-cred`
- CREATE DATABASE webappdb;
- USE webappdb;
- CREATE TABLE IF NOT EXISTS transactions(id INT NOT NULL
-     -> AUTO_INCREMENT, amount DECIMAL(10,2), description
-     -> VARCHAR(100), PRIMARY KEY(id));
- INSERT INTO transactions (amount,description) VALUES ('400','groceries');
 
- # The output should look like this
- +----+--------+-------------+
- | id | amount | description |
- +----+--------+-------------+
- |  1 | 400.00 | groceries   |
- +----+--------+-------------+
- 1 row in set (0.00 sec)
- 
+Configure the two applications independently:
+
+- `app-tier/.env` contains `DB_HOST`, `DB_USER`, `DB_PWD`, `DB_DATABASE`, and the backend `PORT`.
+- `web-tier/.env` contains the frontend `PORT` and `REACT_APP_API_BASE_URL`.
+
+Use the corresponding `.env.example` files as templates. Replace the backend database values with credentials for your local MySQL server. The backend creates the `transactions` table when it starts. Actual `.env` files are ignored by Git.
+
+## Install dependencies
+
+From the project root in PowerShell:
+
+```powershell
+npm ci --prefix app-tier
+npm install --prefix web-tier
 ```
+
+## Run with PM2
+
+From the project root:
+
+```powershell
+pm2 start ecosystem.config.js
+pm2 status
+```
+
+Or in VS Code, run **Terminal → Run Task → Start local application**.
+
+- Frontend: [http://localhost:3000](http://localhost:3000)
+- Backend health check: [http://localhost:4000/health](http://localhost:4000/health)
+
+Useful PM2 commands:
+
+```powershell
+pm2 logs
+pm2 stop three-tier-backend three-tier-frontend
+pm2 restart ecosystem.config.js
+```
+
+The VS Code tasks also provide stop and status commands. If you change a port, update the matching `.env`; when changing the backend port, update `REACT_APP_API_BASE_URL` in `web-tier/.env` as well.
+
+See [app-tier/README.md](./app-tier/README.md) for backend details and [web-tier/README.md](./web-tier/README.md) for frontend details.
