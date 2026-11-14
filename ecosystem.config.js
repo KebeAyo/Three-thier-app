@@ -16,7 +16,9 @@ module.exports = {
             interpreter: 'node',
             watch: false,
             env: {
-                BROWSER: 'none'
+                BROWSER: 'none',
+                HOST: '0.0.0.0',
+                PORT: 3000
             }
         }
     ]

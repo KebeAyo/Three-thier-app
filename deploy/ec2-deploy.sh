@@ -19,10 +19,11 @@ ssh_options=(-i "$deploy_temp/key" -o IdentitiesOnly=yes -o BatchMode=yes
 remote_host="$EC2_USER@$EC2_IP"
 
 tar -czf "$deploy_temp/application.tgz" \
-  app-tier/package.json app-tier/package-lock.json app-tier/*.js web-tier/build
+  app-tier/package.json app-tier/package-lock.json app-tier/*.js \
+  web-tier/package.json web-tier/package-lock.json web-tier/public web-tier/src ecosystem.config.js
 ssh "${ssh_options[@]}" "$remote_host" 'mkdir -p ~/three-tier-app'
 scp "${ssh_options[@]}" "$deploy_temp/application.tgz" "$remote_host:three-tier-app/application.tgz"
-ssh "${ssh_options[@]}" "$remote_host" 'bash -se' <<'REMOTE_DEPLOY'
+ssh "${ssh_options[@]}" "$remote_host" "EC2_HOST=$EC2_IP bash -se" <<'REMOTE_DEPLOY'
 set -euo pipefail
 cd ~/three-tier-app
 tar -xzf application.tgz
@@ -32,34 +33,22 @@ for command in node npm pm2 curl; do
 done
 test -s app-tier/.env || { echo 'Configure ~/three-tier-app/app-tier/.env first.'; exit 1; }
 npm ci --omit=dev --prefix app-tier
-sudo -n mkdir -p /var/www/three-tier-app
-sudo -n cp -a web-tier/build/. /var/www/three-tier-app/
-sudo -n chmod -R a+rX /var/www/three-tier-app
-cat > ecosystem.config.cjs <<'PM2_CONFIG'
-const path = require('path');
-
-module.exports = {
-    apps: [{
-        name: 'three-tier-backend',
-        script: 'index.js',
-        cwd: path.join(__dirname, 'app-tier'),
-        env: { NODE_ENV: 'production', PORT: 4000 },
-        watch: false
-    }]
-};
-PM2_CONFIG
-pm2 startOrRestart ecosystem.config.cjs --update-env
-for attempt in {1..30}; do
-  if curl --fail --silent http://127.0.0.1:4000/health >/dev/null; then
-    # Exercise the Nginx proxy and database-backed endpoint too.
-    curl --fail --silent http://127.0.0.1/api/transaction >/dev/null
-    curl --fail --silent http://127.0.0.1/ >/dev/null
+npm ci --include=dev --prefix web-tier
+# Preserve a frontend environment configured on the instance.
+if [[ ! -f web-tier/.env ]]; then
+  printf 'PORT=3000\nREACT_APP_API_BASE_URL=http://%s:4000\n' "$EC2_HOST" > web-tier/.env
+fi
+pm2 startOrRestart ecosystem.config.js --update-env
+for attempt in {1..60}; do
+  if curl --fail --silent http://127.0.0.1:4000/health >/dev/null &&
+     curl --fail --silent http://127.0.0.1:3000/ >/dev/null &&
+     curl --fail --silent http://127.0.0.1:4000/transaction >/dev/null; then
     pm2 save
     exit 0
   fi
   sleep 3
 done
-echo 'Backend failed its health check.'
-pm2 logs three-tier-backend --nostream --lines 30
+echo 'Application failed its health checks.'
+pm2 logs --nostream --lines 30
 exit 1
 REMOTE_DEPLOY
