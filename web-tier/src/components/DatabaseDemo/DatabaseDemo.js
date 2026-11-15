@@ -46,14 +46,22 @@
 
 
           renderTableData() {
-            return this.state.transactions.map((transaction, index) => {
-               const { id, amount, description} = transaction //destructuring
-               return (
-                  <tr key={id}>
-                     <td>{id}</td>
-                     <td>{amount}</td>
-                     <td>{description}</td>
-                  </tr>
+              if (this.state.transactions.length === 0) {
+                 return (
+                    <tr>
+                       <td className="empty-state" colSpan="3">No records yet. Add a transaction to get started.</td>
+                    </tr>
+                 )
+              }
+
+              return this.state.transactions.map((transaction) => {
+                 const { id, amount, description} = transaction //destructuring
+                 return (
+                    <tr key={id}>
+                       <td className="record-id">#{id}</td>
+                       <td>{amount}</td>
+                       <td>{description}</td>
+                    </tr>
                )
             })
          }
@@ -94,24 +102,70 @@
 
         render () {
         return (
-            <div>
-            <h1 id='title' style={{paddingRight:"1em"}}>Aurora Database Demo Page</h1><input style={{float:"right", marginBottom:"1em"}} type = "button" value ="DEL" onClick={this.handleButtonClickDel} />
-            <table id='transactions'>
-               <tbody>
-                   <tr>
-                       <td>ID</td>
-                       <td>AMOUNT</td>
-                       <td>DESC</td>
-                   </tr>
-                   <tr>
-                        <td><input type = "button" value ="ADD" onClick={this.handleButtonClick}/></td>
-                        <td><input type="text" name ="text_amt" value = {this.state.text_amt} onChange={this.handleTextChange}/></td>
-                        <td><input type="text" name = "text_desc" value = {this.state.text_desc} onChange={this.handleTextChange}/></td>
-                   </tr>
-                  {this.renderTableData()}
-               </tbody>
-            </table>
-         </div>
+           <section className="database-page" aria-labelledby="database-title">
+              <div className="database-heading">
+                 <div>
+                    <p className="page-eyebrow">Live data · Aurora</p>
+                    <h1 id="database-title">Database explorer</h1>
+                    <p>Manage transaction records in your application database.</p>
+                 </div>
+                 <div className="database-count">
+                    <strong>{this.state.transactions.length}</strong> records
+                 </div>
+              </div>
+
+              <div className="database-panel">
+                 <div className="entry-form">
+                    <label className="field-group">
+                       Amount
+                       <input
+                          type="text"
+                          inputMode="decimal"
+                          name="text_amt"
+                          value={this.state.text_amt}
+                          onChange={this.handleTextChange}
+                          placeholder="e.g. 125.00"
+                       />
+                    </label>
+                    <label className="field-group">
+                       Description
+                       <input
+                          type="text"
+                          name="text_desc"
+                          value={this.state.text_desc}
+                          onChange={this.handleTextChange}
+                          placeholder="What is this transaction for?"
+                       />
+                    </label>
+                    <button type="button" onClick={this.handleButtonClick}>
+                       <span aria-hidden="true">＋</span> Add transaction
+                    </button>
+                 </div>
+
+                 <div className="records-toolbar">
+                    <div>
+                       <strong>Transactions</strong>
+                       <span>Stored records</span>
+                    </div>
+                    <button className="clear-button" type="button" onClick={this.handleButtonClickDel}>
+                       Clear all
+                    </button>
+                 </div>
+
+                 <div className="table-scroll">
+                    <table className="transactions-table">
+                       <thead>
+                          <tr>
+                             <th scope="col">ID</th>
+                             <th scope="col">Amount</th>
+                             <th scope="col">Description</th>
+                          </tr>
+                       </thead>
+                       <tbody>{this.renderTableData()}</tbody>
+                    </table>
+                 </div>
+              </div>
+           </section>
 
         );
       }

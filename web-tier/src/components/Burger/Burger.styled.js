@@ -2,38 +2,43 @@
 import styled from 'styled-components';
 
 export const StyledBurger = styled.button`
-  position: absolute;
-  top: 5%;
-  left: 2rem;
+  position: fixed;
+  top: 23px;
+  right: max(calc((100vw - 1180px) / 2), 24px);
   display: flex;
   flex-direction: column;
-  justify-content: space-around;
-  width: 2rem;
-  height: 2rem;
-  background: transparent;
-  border: none;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  width: 40px;
+  height: 40px;
+  border: 1px solid rgba(173, 194, 216, 0.2);
+  border-radius: 10px;
+  background: rgba(17, 26, 40, 0.88);
   cursor: pointer;
   padding: 0;
-  z-index: 10;
+  z-index: 12;
   outline: none;
-  boarder: none;
+
   span {
-    width: 2rem;
-    height: 0.25rem;
-    background: #FFFFFF;
-    border-radius: 10px;
+    width: 15px;
+    height: 1.5px;
+    background: #cbd6e3;
+    border-radius: 2px;
     transition: all 0.3s linear;
     position: relative;
-    transform-origin: 1px;
+    transform-origin: center;
+
     :first-child {
-      transform: ${({ open }) => open ? 'rotate(45deg)' : 'rotate(0)'};
+      transform: ${({ open }) => open ? 'translateY(6.5px) rotate(45deg)' : 'none'};
     }
+
     :nth-child(2) {
       opacity: ${({ open }) => open ? '0' : '1'};
-      transform: ${({ open }) => open ? 'translateX(20px)' : 'translateX(0)'};
     }
+
     :nth-child(3) {
-      transform: ${({ open }) => open ? 'rotate(-45deg)' : 'rotate(0)'};
+      transform: ${({ open }) => open ? 'translateY(-6.5px) rotate(-45deg)' : 'none'};
     }
   }
 `;

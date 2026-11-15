@@ -1,41 +1,49 @@
 import { createGlobalStyle } from 'styled-components'
 
 export const GlobalStyles = createGlobalStyle`
-  html, body {
-    margin: 0;
-    padding: 0;
-  }
-  *, *::after, *::before {
+  *, *::before, *::after {
     box-sizing: border-box;
   }
+
+  html {
+    min-width: 320px;
+    background: #080d18;
+    scroll-behavior: smooth;
+  }
+
   body {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    background: ${({ theme }) => theme.primaryDark};
-    color: ${({ theme }) => theme.primaryLight};
-    height: 100vh;
+    min-width: 320px;
+    min-height: 100vh;
+    margin: 0;
+    color: #eef3fb;
+    background:
+      radial-gradient(ellipse at 82% 0%, rgba(35, 101, 111, 0.17), transparent 34rem),
+      #080d18;
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   }
-  h1 {
-    font-size: 2rem;
-    text-align: center;
-    text-transform: uppercase;
+
+  button, input {
+    font: inherit;
   }
-  img {
-    border-radius: 5px;
-    height: auto;
-    width: 10rem;
+
+  button, a {
+    -webkit-tap-highlight-color: transparent;
   }
-  div {
-    text-align: center;
-  }
-  small {
-    display: block;
-  }
+
   a {
-    color: ${({ theme }) => theme.primaryHover};
+    color: inherit;
     text-decoration: none;
+  }
+
+  button:focus-visible, a:focus-visible, input:focus-visible {
+    outline: 3px solid rgba(95, 220, 192, 0.8);
+    outline-offset: 3px;
+  }
+
+  img {
+    display: block;
+    max-width: 100%;
   }
 `

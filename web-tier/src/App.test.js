@@ -1,8 +1,8 @@
 import { render, screen } from '@testing-library/react';
 import App from './App';
 
-test('renders learn react link', () => {
+test('renders the three-tier application overview', () => {
   render(<App />);
-  const linkElement = screen.getByText(/learn react/i);
-  expect(linkElement).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: /build on a resilient three-tier foundation/i })).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: /explore database demo/i })).toBeInTheDocument();
 });
