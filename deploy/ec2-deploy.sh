@@ -20,10 +20,10 @@ remote_host="$EC2_USER@$EC2_IP"
 
 application_files=(
   package.json app-tier/package.json app-tier/*.js
-  web-tier/package.json web-tier/public web-tier/src ecosystem.config.js
+  web-tier/build ecosystem.config.js
 )
 [[ -f app-tier/package-lock.json ]] && application_files+=(app-tier/package-lock.json)
-[[ -f web-tier/package-lock.json ]] && application_files+=(web-tier/package-lock.json)
+test -s web-tier/build/index.html || { echo 'Build the frontend before deploying.'; exit 1; }
 tar -czf "$deploy_temp/application.tgz" "${application_files[@]}"
 ssh "${ssh_options[@]}" "$remote_host" 'mkdir -p ~/Three-thier-app'
 scp "${ssh_options[@]}" "$deploy_temp/application.tgz" "$remote_host:Three-thier-app/application.tgz"
@@ -42,17 +42,7 @@ if [[ -f app-tier/package-lock.json ]]; then
 else
   (cd app-tier && npm install --omit=dev)
 fi
-echo 'Installing frontend dependencies in web-tier'
-if [[ -f web-tier/package-lock.json ]]; then
-  (cd web-tier && npm ci --include=dev)
-else
-  (cd web-tier && npm install --include=dev)
-fi
-# Preserve a frontend environment configured on the instance.
-if [[ ! -f web-tier/.env ]]; then
-  printf 'PORT=3000\nREACT_APP_API_BASE_URL=http://%s:4000\n' "$EC2_HOST" > web-tier/.env
-fi
-pm2 startOrRestart ecosystem.config.js --update-env
+FRONTEND_MODE=production pm2 startOrRestart ecosystem.config.js --update-env
 for attempt in {1..60}; do
   if curl --fail --silent http://127.0.0.1:4000/health >/dev/null &&
      curl --fail --silent http://127.0.0.1:3000/ >/dev/null &&

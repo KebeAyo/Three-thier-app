@@ -1,4 +1,5 @@
 const path = require('path');
+const productionFrontend = process.env.FRONTEND_MODE === 'production';
 
 module.exports = {
     apps: [
@@ -11,14 +12,19 @@ module.exports = {
         },
         {
             name: 'three-tier-frontend',
-            script: path.join('node_modules', 'react-scripts', 'scripts', 'start.js'),
-            cwd: path.join(__dirname, 'web-tier'),
+            script: productionFrontend
+                ? 'web-server.js'
+                : path.join('node_modules', 'react-scripts', 'scripts', 'start.js'),
+            cwd: productionFrontend
+                ? path.join(__dirname, 'app-tier')
+                : path.join(__dirname, 'web-tier'),
             interpreter: 'node',
             watch: false,
             env: {
                 BROWSER: 'none',
                 HOST: '0.0.0.0',
-                PORT: 3000
+                PORT: 3000,
+                FRONTEND_MODE: productionFrontend ? 'production' : 'development'
             }
         }
     ]
