@@ -21,17 +21,17 @@ remote_host="$EC2_USER@$EC2_IP"
 tar -czf "$deploy_temp/application.tgz" \
   package.json app-tier/package.json app-tier/package-lock.json app-tier/*.js \
   web-tier/package.json web-tier/package-lock.json web-tier/public web-tier/src ecosystem.config.js
-ssh "${ssh_options[@]}" "$remote_host" 'mkdir -p ~/three-tier-app'
-scp "${ssh_options[@]}" "$deploy_temp/application.tgz" "$remote_host:three-tier-app/application.tgz"
+ssh "${ssh_options[@]}" "$remote_host" 'mkdir -p ~/Three-tier-app'
+scp "${ssh_options[@]}" "$deploy_temp/application.tgz" "$remote_host:Three-tier-app/application.tgz"
 ssh "${ssh_options[@]}" "$remote_host" "EC2_HOST=$EC2_IP bash -se" <<'REMOTE_DEPLOY'
 set -euo pipefail
-cd ~/three-tier-app
+cd ~/Three-tier-app
 tar -xzf application.tgz
 
 for command in node npm pm2 curl; do
   command -v "$command" >/dev/null || { echo "Install $command on EC2 first."; exit 1; }
 done
-test -s app-tier/.env || { echo 'Configure ~/three-tier-app/app-tier/.env first.'; exit 1; }
+test -s app-tier/.env || { echo 'Configure ~/Three-tier-app/app-tier/.env first.'; exit 1; }
 echo 'Installing backend dependencies in app-tier'
 (cd app-tier && npm ci --omit=dev)
 echo 'Installing frontend dependencies in web-tier'
