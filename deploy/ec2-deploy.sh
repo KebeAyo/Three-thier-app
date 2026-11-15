@@ -20,7 +20,7 @@ remote_host="$EC2_USER@$EC2_IP"
 
 application_files=(
   package.json app-tier/package.json app-tier/*.js
-  web-tier/build ecosystem.config.js
+  web-tier/build ecosystem.production.config.js
 )
 [[ -f app-tier/package-lock.json ]] && application_files+=(app-tier/package-lock.json)
 test -s web-tier/build/index.html || { echo 'Build the frontend before deploying.'; exit 1; }
@@ -36,13 +36,17 @@ for command in node npm pm2 curl; do
   command -v "$command" >/dev/null || { echo "Install $command on EC2 first."; exit 1; }
 done
 test -s app-tier/.env || { echo 'Configure ~/Three-thier-app/app-tier/.env first.'; exit 1; }
+test -s web-tier/build/index.html || { echo 'Frontend build is missing from the deployment archive.'; exit 1; }
 echo 'Installing backend dependencies in app-tier'
 if [[ -f app-tier/package-lock.json ]]; then
   (cd app-tier && npm ci --omit=dev)
 else
   (cd app-tier && npm install --omit=dev)
 fi
-FRONTEND_MODE=production pm2 startOrRestart ecosystem.config.js --update-env
+if pm2 describe three-tier-frontend >/dev/null 2>&1; then
+  pm2 delete three-tier-frontend
+fi
+pm2 startOrRestart ecosystem.production.config.js --update-env
 for attempt in {1..60}; do
   if curl --fail --silent http://127.0.0.1:4000/health >/dev/null &&
      curl --fail --silent http://127.0.0.1:3000/ >/dev/null &&

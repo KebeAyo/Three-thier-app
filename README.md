@@ -32,8 +32,9 @@ npm ci --prefix app-tier
 npm install --prefix web-tier
 ```
 
-The local frontend uses the React development server. The EC2 deployment builds
-the frontend in GitHub Actions and serves the production build on the server.
+The local frontend uses the React development server from `ecosystem.config.js`.
+The EC2 deployment builds the frontend in GitHub Actions and serves the production
+build on the server using `ecosystem.production.config.js`.
 
 ## Run with PM2
 
