@@ -18,9 +18,13 @@ ssh_options=(-i "$deploy_temp/key" -o IdentitiesOnly=yes -o BatchMode=yes
   -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=15)
 remote_host="$EC2_USER@$EC2_IP"
 
-tar -czf "$deploy_temp/application.tgz" \
-  package.json app-tier/package.json app-tier/package-lock.json app-tier/*.js \
-  web-tier/package.json web-tier/package-lock.json web-tier/public web-tier/src ecosystem.config.js
+application_files=(
+  package.json app-tier/package.json app-tier/*.js
+  web-tier/package.json web-tier/public web-tier/src ecosystem.config.js
+)
+[[ -f app-tier/package-lock.json ]] && application_files+=(app-tier/package-lock.json)
+[[ -f web-tier/package-lock.json ]] && application_files+=(web-tier/package-lock.json)
+tar -czf "$deploy_temp/application.tgz" "${application_files[@]}"
 ssh "${ssh_options[@]}" "$remote_host" 'mkdir -p ~/Three-thier-app'
 scp "${ssh_options[@]}" "$deploy_temp/application.tgz" "$remote_host:Three-thier-app/application.tgz"
 ssh "${ssh_options[@]}" "$remote_host" "EC2_HOST=$EC2_IP bash -se" <<'REMOTE_DEPLOY'
@@ -33,9 +37,17 @@ for command in node npm pm2 curl; do
 done
 test -s app-tier/.env || { echo 'Configure ~/Three-thier-app/app-tier/.env first.'; exit 1; }
 echo 'Installing backend dependencies in app-tier'
-(cd app-tier && npm ci --omit=dev)
+if [[ -f app-tier/package-lock.json ]]; then
+  (cd app-tier && npm ci --omit=dev)
+else
+  (cd app-tier && npm install --omit=dev)
+fi
 echo 'Installing frontend dependencies in web-tier'
-(cd web-tier && npm ci --include=dev)
+if [[ -f web-tier/package-lock.json ]]; then
+  (cd web-tier && npm ci --include=dev)
+else
+  (cd web-tier && npm install --include=dev)
+fi
 # Preserve a frontend environment configured on the instance.
 if [[ ! -f web-tier/.env ]]; then
   printf 'PORT=3000\nREACT_APP_API_BASE_URL=http://%s:4000\n' "$EC2_HOST" > web-tier/.env
